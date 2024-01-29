@@ -1,5 +1,6 @@
 ### Swisstronik SDK Go
 
+[![Test](https://github.com/SigmaGmbH/swisstronik-go-sdk/actions/workflows/test.yml/badge.svg)](https://github.com/SigmaGmbH/swisstronik-go-sdk/actions/workflows/test.yml)
 
 This package provides a thin wrapper for Deoxys-II-256-128 (and maybe other things in the future) for usage v/ Swisstronik chain.
 
