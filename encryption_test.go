@@ -77,3 +77,22 @@ func TestECDHEncryption(t *testing.T) {
 		t.Fatal("decryption failed")
 	}
 }
+
+func TestURLEncryption(t *testing.T) {
+	rpcUrl := "https://json-rpc.testnet.swisstronik.com"
+	var userPrivateKey [32]byte
+	rand.Read(userPrivateKey[:])
+	data := make([]byte, 32)
+
+	encryptedData, err := EncryptECDHWithRPCURL(userPrivateKey[:], rpcUrl, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// split encrypted data to user public key and ciphertext
+	encryptedTransactionData := encryptedData[32:]
+	_, err = DecryptECDHWithRPCURL(userPrivateKey[:], rpcUrl, encryptedTransactionData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}

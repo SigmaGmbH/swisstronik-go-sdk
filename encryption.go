@@ -1,12 +1,17 @@
 package swisstronik_go_sdk
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/oasisprotocol/deoxysii"
 	"golang.org/x/crypto/curve25519"
+	"io"
+	"net/http"
 )
 
 // EncryptState encrypts smart contract state using simmetric key derived from master key only for specific contract.
@@ -29,6 +34,57 @@ func DecryptState(masterKey, contractAddress, value []byte) ([]byte, error) {
 	contractKey := DeriveEncryptionKey(txKey, contractAddress)
 	// Encrypt storage value
 	return decryptDeoxys(contractKey, value)
+}
+
+type PublicKeyFetchResponse struct {
+	ID      int    `json:"id"`
+	Jsonrpc string `json:"jsonrpc"`
+	Result  string `json:"result"`
+}
+
+func FetchNodePublicKey(rpcUrl string) ([]byte, error) {
+	requestData := map[string]any{
+		"id":      1,
+		"jsonrpc": "2.0",
+		"method":  "eth_getNodePublicKey",
+		"params":  []string{"latest"},
+	}
+	jsonValue, _ := json.Marshal(requestData)
+	req, err := http.NewRequest("POST", rpcUrl, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var publicKeyData PublicKeyFetchResponse
+	err = json.Unmarshal(body, &publicKeyData)
+	if err != nil {
+		return nil, err
+	}
+	nodePublicKey, err := hexutil.Decode(publicKeyData.Result)
+	if err != nil {
+		return nil, err
+	}
+	return nodePublicKey, nil
+}
+
+// EncryptECDHWithRPCURL fetched node public key from rpcURL and encrypts provided value using encryption key, derived from user private key
+func EncryptECDHWithRPCURL(privateKey []byte, rpcUrl string, data []byte) ([]byte, error) {
+	nodePublicKey, err := FetchNodePublicKey(rpcUrl)
+	if err != nil {
+		return nil, err
+	}
+	return EncryptECDH(privateKey, nodePublicKey, data)
 }
 
 // EncryptECDH encrypts provided value using encryption key, derived from user private key and node public key.
@@ -55,6 +111,15 @@ func EncryptECDH(privateKey, nodePublicKey, data []byte) ([]byte, error) {
 	copy(sizedPrivateKey[:], privateKey[:32])
 	userPublicKey := GetCurve25519PublicKey(sizedPrivateKey)
 	return append(userPublicKey[:], encryptedData...), nil
+}
+
+// DecryptECDHWithRPCURL fetched node public key from rpcURL and decrypts provided value using provided encryption key
+func DecryptECDHWithRPCURL(privateKey []byte, rpcUrl string, encryptedData []byte) ([]byte, error) {
+	nodePublicKey, err := FetchNodePublicKey(rpcUrl)
+	if err != nil {
+		return nil, err
+	}
+	return DecryptECDH(privateKey, nodePublicKey, encryptedData)
 }
 
 func DecryptECDH(privateKey, nodePublicKey, encryptedData []byte) ([]byte, error) {
