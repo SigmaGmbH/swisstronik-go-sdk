@@ -8,5 +8,7 @@ Currently, it exposes the following functions:
 
 * EncryptState/DecryptState for smart contract enc/dec
 * EncryptECDH/DecryptECDH for arbitrary data enc/dec with user's private key and node public key
+* EncryptECDHWithRPCURL/DecryptECDHWithRPCURL - convenience encryption with pre-fetching node public key
+* FetchNodePublicKey - for fetching node public key via JSON-RPC
 * GetCurve25519PublicKey - for getting public key from private key
 * DeriveEncryptionKey - for deriving a new master key using the other one and salt
